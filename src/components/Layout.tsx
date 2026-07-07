@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
@@ -19,6 +19,9 @@ export default function Layout() {
     isLoggedIn, userRole, logout,
     userProfile,
     screenReaderText, setScreenReaderText,
+    shortcutsPanelOpen, setShortcutsPanelOpen,
+    invModalOpen, invModalData, setInvModalOpen,
+    showToast,
     t,
   } = useApp();
 
@@ -29,6 +32,30 @@ export default function Layout() {
     logout();
     navigate('/login');
   };
+
+  // Listen to custom navigation events dispatched from keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const path = (e as CustomEvent<string>).detail;
+      navigate(path);
+    };
+    window.addEventListener('ua-navigate', handler);
+    return () => window.removeEventListener('ua-navigate', handler);
+  }, [navigate]);
+
+  // Keyboard shortcuts list
+  const shortcuts = [
+    { keys: 'Alt + A', desc: t('shortcut_acc') },
+    { keys: 'Alt + K', desc: t('shortcuts_title') },
+    { keys: 'Alt + H', desc: t('shortcut_home') },
+    { keys: 'Alt + R', desc: t('shortcut_reg') },
+    { keys: 'Alt + C', desc: t('shortcut_cal') },
+    { keys: 'Alt + S', desc: t('shortcut_survey') },
+    { keys: 'Alt + M', desc: t('shortcut_tickets') },
+    { keys: 'Alt + I', desc: t('shortcut_incidents') },
+    { keys: 'Alt + P', desc: t('shortcut_admin') },
+    { keys: 'Esc', desc: t('shortcut_esc') },
+  ];
 
   return (
     <>
@@ -57,11 +84,49 @@ export default function Layout() {
           </svg>
           <div>
             <h1>{t('app_title')}</h1>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{t('group_signature')}</div>
           </div>
         </div>
 
         <div className="header-controls">
+          {/* Icon buttons first — left group */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            {/* Shortcuts panel button */}
+            <button
+              id="shortcuts-panel-toggle"
+              className="acc-panel-toggle"
+              aria-label={`${t('shortcuts_title')} (Atajo: Alt+K)`}
+              aria-haspopup="true"
+              aria-expanded={shortcutsPanelOpen}
+              onMouseUp={() => setShortcutsPanelOpen(!shortcutsPanelOpen)}
+              title={`${t('shortcuts_title')} — Alt+K`}
+            >
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h.01M10 16h8"></path>
+              </svg>
+            </button>
+
+            {/* Accessibility button */}
+            <button
+              className="acc-panel-toggle"
+              aria-label="Menú de Accesibilidad (Atajo: Alt+A)"
+              aria-haspopup="true"
+              aria-expanded={accPanelOpen}
+              onMouseUp={() => setAccPanelOpen(!accPanelOpen)}
+              title="Accesibilidad — Alt+A"
+            >
+            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"></path>
+              <path d="M9 11h6a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v4a1 1 0 0 1-2 0v-4h-1v4a1 1 0 0 1-2 0v-4H9a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z"></path>
+            </svg>
+            </button>
+          </div>
+
+          {/* Separator */}
+          <div style={{ width: '1px', height: '24px', background: 'var(--border-color)', margin: '0 0.25rem' }} aria-hidden="true" />
+
+          {/* User info + Logout — right group */}
           <div className="header-meta">
             {isLoggedIn ? (
               <span>
@@ -78,26 +143,51 @@ export default function Layout() {
           </div>
 
           {isLoggedIn && (
-            <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onMouseUp={handleLogout}>
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+              onMouseUp={handleLogout}
+            >
               {t('logout_btn')}
             </button>
           )}
-
-          <button
-            className="acc-panel-toggle"
-            aria-label="Menú de Accesibilidad (Atajo: Alt+A)"
-            aria-haspopup="true"
-            aria-expanded={accPanelOpen}
-            onMouseUp={() => setAccPanelOpen(!accPanelOpen)}
-          >
-            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"></path>
-              <path d="M9 11h6a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v4a1 1 0 0 1-2 0v-4h-1v4a1 1 0 0 1-2 0v-4H9a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z"></path>
-            </svg>
-          </button>
         </div>
       </header>
+
+      {/* SHORTCUTS PANEL */}
+      <aside
+        id="shortcuts-panel"
+        className={`acc-panel ${shortcutsPanelOpen ? 'open' : ''}`}
+        style={{ minWidth: '280px' }}
+        role="dialog"
+        aria-modal="false"
+        aria-label={t('shortcuts_title')}
+      >
+        <div className="acc-panel-header">
+          <h2>{t('shortcuts_title')}</h2>
+          <button className="acc-close-btn" onMouseUp={() => setShortcutsPanelOpen(false)} aria-label="Cerrar panel">✕</button>
+        </div>
+        <div style={{ padding: '0.5rem 0' }}>
+          {shortcuts.map(sc => (
+            <div key={sc.keys} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '0.55rem 1rem', borderBottom: '1px solid var(--border-color)',
+              gap: '0.75rem',
+            }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{sc.desc}</span>
+              <kbd style={{
+                background: 'var(--bg-color)', border: '1px solid var(--border-color)',
+                borderRadius: '0.35rem', padding: '0.2rem 0.5rem',
+                fontSize: '0.75rem', fontFamily: 'monospace', fontWeight: 700,
+                color: 'var(--accent-primary)', whiteSpace: 'nowrap',
+                boxShadow: '0 2px 0 var(--border-color)',
+              }}>
+                {sc.keys}
+              </kbd>
+            </div>
+          ))}
+        </div>
+      </aside>
 
       {/* ACCESSIBILITY PANEL */}
       <aside className={`acc-panel ${accPanelOpen ? 'open' : ''}`} role="dialog" aria-modal="false" aria-label={t('acc_title')}>
@@ -134,7 +224,6 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* NEW: Reducir movimiento */}
         <div className="acc-option">
           <span>{t('acc_reduce_motion')}</span>
           <div className="switch-container">
@@ -144,7 +233,6 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* NEW: Modo dislexia */}
         <div className="acc-option">
           <span>{t('acc_dyslexia')}</span>
           <div className="switch-container">
@@ -154,7 +242,6 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* NEW: Escala de grises */}
         <div className="acc-option">
           <span>{t('acc_grayscale')}</span>
           <div className="switch-container">
@@ -164,7 +251,6 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* NEW: Subrayar enlaces */}
         <div className="acc-option">
           <span>{t('acc_underline')}</span>
           <div className="switch-container">
@@ -190,6 +276,127 @@ export default function Layout() {
           </select>
         </div>
       </aside>
+
+      {/* INVITATION EMAIL MODAL */}
+      {invModalOpen && invModalData && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="inv-modal-title"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+            padding: '1rem',
+            animation: 'fadeIn 0.2s ease',
+          }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setInvModalOpen(false); }}
+        >
+          <div style={{
+            background: 'var(--surface-color)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '1rem',
+            maxWidth: '500px', width: '100%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+            overflow: 'hidden',
+            animation: 'slideUp 0.25s ease',
+          }}>
+            {/* Modal header */}
+            <div style={{
+              background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+              padding: '1.2rem 1.5rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>✉️</span>
+                <div>
+                  <h3 id="inv-modal-title" style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>
+                    {t('inv_email_title')}
+                  </h3>
+                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', fontSize: '0.78rem' }}>
+                    {t('inv_email_from')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onMouseUp={() => setInvModalOpen(false)}
+                aria-label="Cerrar"
+                style={{
+                  background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%',
+                  width: '2rem', height: '2rem', cursor: 'pointer', color: '#fff', fontSize: '1rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >✕</button>
+            </div>
+
+            {/* Email preview */}
+            <div style={{ padding: '1.5rem' }}>
+              {/* Email meta */}
+              <div style={{ background: 'var(--bg-color)', borderRadius: '0.5rem', padding: '0.75rem 1rem', marginBottom: '1.2rem', fontSize: '0.82rem' }}>
+                {[
+                  { label: currentLang === 'es' ? 'Para' : 'To', value: `${invModalData.name} <${invModalData.email}>` },
+                  { label: currentLang === 'es' ? 'De' : 'From', value: t('inv_email_from') },
+                  { label: currentLang === 'es' ? 'Asunto' : 'Subject', value: t('inv_email_subject') },
+                ].map(row => (
+                  <div key={row.label} style={{ display: 'flex', gap: '0.5rem', padding: '0.2rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ fontWeight: 700, minWidth: '60px', color: 'var(--text-secondary)' }}>{row.label}:</span>
+                    <span style={{ color: 'var(--text-color)' }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Email body */}
+              <div style={{
+                border: '1px solid var(--border-color)', borderRadius: '0.5rem', padding: '1.2rem',
+                lineHeight: 1.6, fontSize: '0.9rem',
+              }}>
+                <p style={{ margin: '0 0 0.75rem' }}>
+                  <strong>{t('inv_email_greeting')}, {invModalData.name}! 👋</strong>
+                </p>
+                <p style={{ margin: '0 0 1rem', color: 'var(--text-secondary)' }}>
+                  {t('inv_email_body')}
+                </p>
+
+                {/* Event info box */}
+                <div style={{
+                  background: 'var(--accent-primary)15',
+                  border: '1px solid var(--accent-primary)40',
+                  borderRadius: '0.5rem', padding: '0.75rem 1rem', marginBottom: '1rem',
+                }}>
+                  <div style={{ fontWeight: 700, marginBottom: '0.3rem', color: 'var(--accent-primary)' }}>
+                    🎫 {invModalData.eventName}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    {currentLang === 'es' ? 'Código QR' : 'QR Code'}: <code style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>{invModalData.qrId}</code>
+                  </div>
+                </div>
+
+                {/* CTA Button */}
+                <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+                  <button
+                    id="inv-accept-btn"
+                    className="btn btn-primary"
+                    style={{ width: '100%', justifyContent: 'center', borderRadius: '0.5rem' }}
+                    onMouseUp={() => {
+                      showToast(t('inv_email_accept_done'));
+                      setInvModalOpen(false);
+                    }}
+                  >
+                    ✅ {t('inv_email_accept')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Footer note */}
+              <p style={{ textAlign: 'center', fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.8rem', margin: '0.8rem 0 0' }}>
+                {currentLang === 'es'
+                  ? '📧 Este es un correo simulado. En producción se enviaría al email registrado.'
+                  : '📧 This is a simulated email. In production it would be sent to the registered address.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CORE WORKSPACE */}
       <div className="app-wrapper">
@@ -238,8 +445,28 @@ export default function Layout() {
                 <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                 <span>{t('nav_incidents')}</span>
               </NavLink>
+
+              {/* Admin Panel link */}
+              <NavLink to="/dashboard/admin" className={({ isActive }) => `sidebar-btn${isActive ? ' active' : ''}`} style={{ marginTop: '0.25rem' }}>
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                  <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                  <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                  <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                </svg>
+                <span>{t('nav_admin')}</span>
+              </NavLink>
             </>
-          ) : null /* asistente: no organizer links */}
+          ) : (
+            /* Asistente logueado — Área privada del asistente */
+            <>
+              <div className="sidebar-title">{t('nav_title_att')}</div>
+              <NavLink to="/my-tickets" className={({ isActive }) => `sidebar-btn${isActive ? ' active' : ''}`}>
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 3h-8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"></path></svg>
+                <span>{t('nav_my_tickets')}</span>
+              </NavLink>
+            </>
+          )}
 
           <div className="sidebar-title">{t('nav_title_pub')}</div>
 

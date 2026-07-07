@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp, DEMO_USERS } from '../context/AppContext';
 
@@ -29,10 +29,10 @@ export default function LoginPage() {
     let valid = true;
     setAuthError('');
 
-    if (!email.includes('@') || email.trim().length < 5) {
+    if (!email.includes('@') || !email.includes('.') || email.trim().length < 5) {
       setEmailError(currentLang === 'es'
-        ? '⚠ Por favor, ingrese un correo válido con formato @.'
-        : '⚠ Please enter a valid email format containing @.');
+        ? '⚠ El correo debe tener el formato usuario@dominio.com (ej: nombre@evento.com). Verifique que incluya @ y un dominio con punto.'
+        : '⚠ Email must follow the format user@domain.com (e.g. name@event.com). Make sure it includes @ and a domain with a dot.');
       valid = false;
     } else {
       setEmailError('');
@@ -40,8 +40,8 @@ export default function LoginPage() {
 
     if (password.trim().length < 3) {
       setPasswordError(currentLang === 'es'
-        ? '⚠ La contraseña debe tener al menos 3 caracteres.'
-        : '⚠ Password must be at least 3 characters long.');
+        ? '⚠ La contraseña debe tener al menos 3 caracteres. Asegúrese de que no haya espacios en blanco al inicio ni al final.'
+        : '⚠ Password must be at least 3 characters long. Make sure there are no leading or trailing spaces.');
       valid = false;
     } else {
       setPasswordError('');
@@ -58,8 +58,8 @@ export default function LoginPage() {
 
     if (!matched) {
       const msg = currentLang === 'es'
-        ? '⚠ Correo o contraseña incorrectos. Verifique las credenciales de acceso.'
-        : '⚠ Incorrect email or password. Please check your credentials.';
+        ? '⚠ Correo electrónico o contraseña incorrectos. Verifique que el correo sea exactamente el registrado y que la contraseña respete mayúsculas y minúsculas. Puede usar las credenciales de demostración del panel izquierdo.'
+        : '⚠ Incorrect email address or password. Make sure the email matches exactly and that the password is case-sensitive. You can use the demo credentials shown on the left panel.';
       setAuthError(msg);
       setScreenReaderText(msg);
       return;
@@ -178,12 +178,12 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="login-app-title">{t('app_title')}</h1>
-          <p className="login-subtitle">{t('group_signature')}</p>
+          <p className="login-subtitle">{currentLang === 'es' ? 'Plataforma profesional de gestión de eventos' : 'Professional event management platform'}</p>
 
           <div className="login-features" aria-label="Características clave del sistema">
             <div className="login-feature-item">
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-              <span>WCAG 2.2 AAA Compliance</span>
+              <span>{currentLang === 'es' ? 'Plataforma Accesible e Inclusiva' : 'Accessible & Inclusive Platform'}</span>
             </div>
             <div className="login-feature-item">
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"></path><path d="M9 11h6a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v4a1 1 0 0 1-2 0v-4h-1v4a1 1 0 0 1-2 0v-4H9a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z"></path></svg>

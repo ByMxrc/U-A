@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import type { CheckInLogItem } from '../context/AppContext';
+import type { CheckInLogItem, RegistrationItem } from '../context/AppContext';
 
 export default function RegisterPage() {
-  const { t, currentLang, events, setActualAttendance, setCheckInLog, checkInLog, showToast, setScreenReaderText } = useApp();
+  const { t, currentLang, events, setActualAttendance, setCheckInLog, checkInLog, showToast, setScreenReaderText, setRegistrations, userProfile, isLoggedIn, sendInvitationEmail } = useApp();
 
   const [wizardStep, setWizardStep] = useState(1);
   const [regName, setRegName] = useState('');
@@ -21,10 +21,25 @@ export default function RegisterPage() {
   const handleWizardNext = (step: number) => {
     if (step === 2) {
       let valid = true;
-      if (regName.trim().length < 3) { setRegNameError(currentLang === 'es' ? '⚠ Nombre demasiado corto (mínimo 3 caracteres).' : '⚠ Name is too short (minimum 3 characters).'); valid = false; } else setRegNameError('');
-      if (!regEmail.includes('@') || !regEmail.includes('.')) { setRegEmailError(currentLang === 'es' ? '⚠ Formato de correo inválido (debe incluir @ y punto).' : '⚠ Invalid email format (must contain @ and dot).'); valid = false; } else setRegEmailError('');
-      if (regTel.trim().length < 7) { setRegTelError(currentLang === 'es' ? '⚠ Por favor, ingrese un número telefónico de contacto válido.' : '⚠ Please enter a valid telephone number.'); valid = false; } else setRegTelError('');
-      if (!valid) { setScreenReaderText(currentLang === 'es' ? 'Errores de validación en el paso 1.' : 'Validation errors on step 1.'); return; }
+      if (regName.trim().length < 3) {
+        setRegNameError(currentLang === 'es'
+          ? '⚠ El nombre es demasiado corto. Debe tener al menos 3 caracteres. Ingrese su nombre completo (nombre y apellido).'
+          : '⚠ Name is too short. It must have at least 3 characters. Please enter your full name (first and last name).');
+        valid = false;
+      } else setRegNameError('');
+      if (!regEmail.includes('@') || !regEmail.includes('.')) {
+        setRegEmailError(currentLang === 'es'
+          ? '⚠ Formato de correo inválido. Debe seguir el esquema usuario@dominio.com e incluir @ y un punto en el dominio (ej: danna@evento.com).'
+          : '⚠ Invalid email format. It must follow the pattern user@domain.com and include @ and a dot in the domain (e.g. danna@event.com).');
+        valid = false;
+      } else setRegEmailError('');
+      if (regTel.trim().length < 7) {
+        setRegTelError(currentLang === 'es'
+          ? '⚠ El número telefónico ingresado es demasiado corto. Debe contener al menos 7 dígitos (ej: 0987654321).'
+          : '⚠ The phone number entered is too short. It must contain at least 7 digits (e.g. 0987654321).');
+        valid = false;
+      } else setRegTelError('');
+      if (!valid) { setScreenReaderText(currentLang === 'es' ? 'Errores de validación en el paso 1. Corrija los campos marcados antes de continuar.' : 'Validation errors on step 1. Please fix the marked fields before continuing.'); return; }
     }
     setWizardStep(step);
     setScreenReaderText((currentLang === 'es' ? 'Asistente de registro: Paso ' : 'Registration wizard: Step ') + step);
@@ -36,6 +51,26 @@ export default function RegisterPage() {
     const timeStr = now.toTimeString().split(' ')[0].slice(0, 5);
     const newLogItem: CheckInLogItem = { id: checkInLog.length + 1, time: timeStr, name: regName, type: regCategory.toUpperCase() + (regDiscount !== 'none' ? ` (${regDiscount})` : '') };
     setCheckInLog(prev => [newLogItem, ...prev]);
+
+    // Guardar inscripción vinculada al usuario activo (localStorage compartido)
+    const newReg: RegistrationItem = {
+      id: Date.now(),
+      userId: isLoggedIn ? userProfile.email : 'guest',
+      userName: regName,
+      userEmail: regEmail,
+      eventId: regSelectedEventId,
+      eventName: regSelectedEvent?.name ?? 'Evento',
+      category: regCategory,
+      discount: regDiscount,
+      timestamp: new Date().toISOString(),
+      status: 'active',
+      qrId: `QR-${Date.now().toString(36).toUpperCase()}`,
+    };
+    setRegistrations(prev => [...prev, newReg]);
+
+    // Send invitation email (simulated)
+    sendInvitationEmail(regName, regEmail, regSelectedEvent?.name ?? 'Evento', newReg.qrId);
+
     setWizardStep(4);
     showToast(currentLang === 'es' ? '¡Registro completado! Entrada generada.' : 'Registration successful! Ticket issued.');
   };
@@ -65,7 +100,7 @@ export default function RegisterPage() {
               <legend>{t('reg_step1_legend')}</legend>
               <div className="form-group">
                 <label htmlFor="reg-name">{t('reg_name')}</label>
-                <input type="text" id="reg-name" autoComplete="name" required placeholder="Danna Murillo" value={regName} onChange={(e) => setRegName(e.target.value)} />
+                <input type="text" id="reg-name" autoComplete="name" required placeholder="María García" value={regName} onChange={(e) => setRegName(e.target.value)} />
                 {regNameError && <div className="validation-message error">{regNameError}</div>}
               </div>
               <div className="form-group">

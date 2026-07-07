@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useApp } from '../context/AppContext';
 import type { SessionItem } from '../context/AppContext';
 
@@ -50,7 +50,7 @@ export default function AgendaPage() {
             </div>
             <div className="form-group">
               <label htmlFor="agenda-speaker">{t('agenda_speaker')}</label>
-              <input type="text" id="agenda-speaker" required value={agendaSpeaker} onChange={(e) => setAgendaSpeaker(e.target.value)} placeholder="Vera Abigail" />
+              <input type="text" id="agenda-speaker" required value={agendaSpeaker} onChange={(e) => setAgendaSpeaker(e.target.value)} placeholder="Ej: Dr. Laura Quispe" />
             </div>
           </div>
           <div className="form-row">

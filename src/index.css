@@ -342,8 +342,9 @@ body.high-contrast .header-logo h1 {
 
 .sidebar-title {
   font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  /* text-transform: uppercase removido — WCAG: evitar mayúsculas sostenidas (legibilidad/dislexia) */
+  font-weight: 600;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
   margin: 1rem 0.5rem 0.5rem;
 }
@@ -631,8 +632,8 @@ input[type="checkbox"].switch-checkbox:focus-visible + .switch-control {
 
 /* PANEL DE ACCESIBILIDAD FLOTANTE (ALT+A) */
 .acc-panel-toggle {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background-color: var(--accent-primary);
   color: #fff;
@@ -641,23 +642,23 @@ input[type="checkbox"].switch-checkbox:focus-visible + .switch-control {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: fixed;
-  top: 1rem;
-  right: 2rem;
-  z-index: 1001;
-  transition: transform var(--transition-speed);
+  position: relative;
+  z-index: auto;
+  transition: transform var(--transition-speed), background-color var(--transition-speed);
+  flex-shrink: 0;
 }
 
 .acc-panel-toggle:hover {
-  transform: scale(1.05);
+  transform: scale(1.08);
+  background-color: var(--accent-primary-hover);
 }
 
 .acc-panel {
   position: fixed;
-  top: 5rem;
-  right: 2rem;
+  top: 4.5rem;
+  right: 1.5rem;
   width: 320px;
-  max-height: calc(100vh - 7rem);
+  max-height: calc(100vh - 6rem);
   overflow-y: auto;
   background-color: var(--bg-secondary);
   border: 2px solid var(--border-color);
@@ -1556,3 +1557,171 @@ body.high-contrast .login-demo-pass {
   border: 1px solid #ffffff !important;
 }
 
+/* ============================================================
+   WCAG 1.4.1 — Subrayado de enlaces en contenido de cuerpo
+   Los links dentro del contenido principal deben ser
+   distinguibles visualmente sin depender solo del color.
+   ============================================================ */
+.main-content a:not(.btn):not(.skip-link):not(.sidebar-btn),
+.app-section a:not(.btn):not(.skip-link) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--accent-primary);
+}
+
+.main-content a:not(.btn):not(.skip-link):not(.sidebar-btn):hover,
+.app-section a:not(.btn):not(.skip-link):hover {
+  color: var(--accent-primary-hover);
+  text-decoration-thickness: 2px;
+}
+
+body.high-contrast .main-content a:not(.btn):not(.skip-link),
+body.high-contrast .app-section a:not(.btn):not(.skip-link) {
+  color: #ffffff !important;
+  text-decoration: underline !important;
+}
+
+/* ============================================================
+   WCAG 3.3.4 — Modal de confirmación accesible
+   Usado por CreateEventPage e IncidentsPage para prevenir
+   errores en acciones críticas irreversibles.
+   ============================================================ */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.confirm-modal {
+  background-color: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  max-width: 560px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: slideInUp 0.25s ease-out;
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+body.high-contrast .confirm-modal-overlay {
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+body.high-contrast .confirm-modal {
+  background-color: #000000 !important;
+  border: 2px solid #ffffff !important;
+}
+
+body.reduced-motion .confirm-modal-overlay,
+body.reduced-motion .confirm-modal {
+  animation: none !important;
+}
+
+/* ============================================================
+   btn-danger — botón de acción destructiva (rojo)
+   ============================================================ */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.25rem;
+  min-height: 44px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: 2px solid var(--error-color);
+  border-radius: 8px;
+  background-color: var(--error-color);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+.btn-danger:hover,
+.btn-danger:focus-visible {
+  background-color: #991b1b;
+  border-color: #991b1b;
+  outline: var(--focus-outline-width) solid var(--border-color-focus);
+  outline-offset: 3px;
+}
+body.high-contrast .btn-danger {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #ffffff !important;
+}
+
+/* ============================================================
+   Boletos digitales — MyTicketsPage
+   ============================================================ */
+.ticket-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+  border: 2px dashed var(--accent-primary);
+  border-radius: var(--border-radius);
+  max-width: 420px;
+  margin: 0 auto;
+  box-shadow: var(--shadow-premium);
+  position: relative;
+  transition: box-shadow 0.2s;
+}
+.ticket-container:focus-visible {
+  outline: var(--focus-outline-width) solid var(--border-color-focus);
+  outline-offset: 3px;
+}
+.ticket-container:hover {
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.18);
+}
+
+.ticket-divider {
+  width: 100%;
+  height: 1px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--border-color) 0px,
+    var(--border-color) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+  margin: 0.25rem 0;
+}
+
+.ticket-qr {
+  width: 120px;
+  height: 120px;
+  padding: 8px;
+  background-color: #ffffff;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+}
+
+body.high-contrast .ticket-container {
+  border: 2px solid #ffffff !important;
+  background: #000000 !important;
+}
+body.high-contrast .ticket-qr {
+  border-color: #ffffff !important;
+}
+
+/* ============================================================
+   Favoritos en CalendarPage — botón estrella
+   ============================================================ */
+.btn-fav:focus-visible {
+  outline: var(--focus-outline-width) solid var(--border-color-focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}

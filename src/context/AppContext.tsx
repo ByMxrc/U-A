@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 
 // ======================= INTERFACES =======================
 export interface EventItem {
@@ -55,13 +55,119 @@ export interface ChatMessage {
   sender: 'bot' | 'user';
 }
 
+/** Inscripción de un asistente a un evento */
+export interface RegistrationItem {
+  id: number;
+  userId: string;        // email del usuario logueado, o 'guest'
+  userName: string;
+  userEmail: string;
+  eventId: string;
+  eventName: string;
+  category: string;
+  discount: string;
+  timestamp: string;     // ISO string
+  status: 'active' | 'cancelled';
+  qrId: string;          // ID único para el QR
+  invitationSent?: boolean; // si se envió correo de invitación
+}
+
+/** Respuesta de encuesta de satisfacción */
+export interface SurveyResponse {
+  id: number;
+  eventId: string;
+  eventName: string;
+  satisfaction: number;  // 1-5
+  comments: string;
+  timestamp: string;     // ISO string
+  respondentName?: string;
+}
+
+/** Log de invitaciones enviadas */
+export interface InvitationLog {
+  id: number;
+  toName: string;
+  toEmail: string;
+  eventName: string;
+  qrId: string;
+  sentAt: string;
+}
+
+// ======================= localStorage KEYS =======================
+const LS_DATA = {
+  SESSION:       'ua_session',
+  EVENTS:        'ua_events',
+  AGENDA:        'ua_agenda',
+  INCIDENTS:     'ua_incidents',
+  REGISTRATIONS: 'ua_registrations',
+  CHECKIN_LOG:   'ua_checkin_log',
+  ATTENDANCE:    'ua_attendance',
+  SURVEYS:       'ua_surveys',
+  INVITATIONS:   'ua_invitations',
+} as const;
+
+/** Carga segura desde localStorage con fallback */
+function loadLS<T>(key: string, defaultValue: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+}
+
+// ======================= DATOS INICIALES POR DEFECTO =======================
+const DEFAULT_EVENTS: EventItem[] = [
+  {
+    id: "ev-1", name: "Congreso Internacional de Accesibilidad Web 2026", type: "conferencia",
+    startDate: "2026-10-12", endDate: "2026-10-14", capacity: 350, cost: 25000,
+    venueName: "Centro Cultural Metropolitano", city: "Quito", country: "Ecuador",
+    address: "García Moreno y Espejo", hasRamps: true, hasLoop: true, hasToilets: true, hasParking: true,
+    ticketType: "mixta", priceGen: 15, priceVip: 45, discStudent: true, discSenior: true, discDisabled: true
+  },
+  {
+    id: "ev-2", name: "Festival de Música Inclusiva 'Ritmos para Todos'", type: "concierto",
+    startDate: "2026-11-20", endDate: "2026-11-20", capacity: 1200, cost: 45000,
+    venueName: "Parque Bicentenario (Explanada)", city: "Quito", country: "Ecuador",
+    address: "Av. Amazonas", hasRamps: true, hasLoop: false, hasToilets: true, hasParking: true,
+    ticketType: "gratuita", priceGen: 0, priceVip: 0, discStudent: false, discSenior: false, discDisabled: false
+  },
+  {
+    id: "ev-3", name: "Taller Práctico de Diseño Centrado en el Usuario", type: "taller",
+    startDate: "2026-09-05", endDate: "2026-09-06", capacity: 50, cost: 3500,
+    venueName: "Aulas de Posgrado - Universidad U&A", city: "Guayaquil", country: "Ecuador",
+    address: "Av. Carlos Julio Arosemena", hasRamps: true, hasLoop: false, hasToilets: false, hasParking: false,
+    ticketType: "pago", priceGen: 50, priceVip: 90, discStudent: true, discSenior: true, discDisabled: true
+  }
+];
+
+const DEFAULT_AGENDA: Record<string, SessionItem[]> = {
+  "ev-1": [
+    { name: "Apertura y Registro de Asistentes", time: "09:00", speaker: "Dr. Carlos Mendoza", room: "Sala Magna (Nivel 1)", materials: "", interpreter: true },
+    { name: "Herramientas digitales para la gestión de eventos", time: "10:30", speaker: "Ing. Laura Quispe", room: "Sala Magna", materials: "", interpreter: true },
+    { name: "Mesa Redonda: Innovación en eventos corporativos", time: "12:00", speaker: "Mg. Andrea Torres", room: "Sala B", materials: "", interpreter: false }
+  ],
+  "ev-2": [
+    { name: "Apertura de Puertas e Inducción de Seguridad", time: "16:00", speaker: "Logística G7", room: "Escenario Principal", materials: "", interpreter: false },
+    { name: "Presentación del Coro Inclusivo Voces de Libertad", time: "17:30", speaker: "Director Coral", room: "Escenario Principal", materials: "", interpreter: true }
+  ],
+  "ev-3": [
+    { name: "Introducción a la gestión de proyectos de eventos", time: "09:30", speaker: "Lic. Roberto Silva", room: "Laboratorio L-402", materials: "", interpreter: false }
+  ]
+};
+
+const DEFAULT_CHECKIN: CheckInLogItem[] = [
+  { id: 1, time: "10:05", name: "Sofia Reyes", type: "PCD - General" },
+  { id: 2, time: "10:03", name: "Carlos Andrade", type: "General" },
+  { id: 3, time: "10:00", name: "Miguel Pérez", type: "VIP" }
+];
+
 // ======================= TRANSLATIONS =======================
 export const translations: Record<string, Record<string, string>> = {
   es: {
     skip_to_content: "Saltar al contenido principal",
     dismiss: "Cerrar",
     app_title: "Sistema Inteligente de Gestión de Eventos",
-    group_signature: "Diseño Centrado en el Usuario - Grupo 7 (Vera A., Murillo D., Carrillo A.)",
+    group_signature: "Plataforma de Gestión de Eventos",
     profile_guest: "Invitado",
     profile_logged: "Organizador: ",
     acc_title: "Panel de Accesibilidad",
@@ -86,6 +192,7 @@ export const translations: Record<string, Record<string, string>> = {
     acc_underline_desc: "Hace visibles todos los enlaces",
     nav_title_org: "Sesión Organizador",
     nav_title_pub: "Público General",
+    nav_title_att: "Área del Asistente",
     nav_login: "Inicio de Sesión",
     nav_profile: "Perfil y Preferencias",
     nav_create_event: "Crear Evento",
@@ -98,10 +205,13 @@ export const translations: Record<string, Record<string, string>> = {
     nav_calendar: "Buscador y Agenda",
     nav_chatbot: "Asistente Virtual",
     nav_survey: "Encuesta Satisfacción",
+    nav_my_tickets: "Mis Boletos",
     btn_save: "Guardar Cambios",
     btn_next: "Siguiente",
     btn_prev: "Anterior",
     btn_edit: "Editar datos",
+    btn_cancel: "Cancelar",
+    btn_confirm: "Confirmar",
     login_title: "Inicio de Sesión del Organizador",
     login_legend: "Credenciales de Acceso",
     login_instructions: "Ingrese sus datos de organizador. Como demostración, puede usar cualquier dirección de correo electrónico y contraseña.",
@@ -203,6 +313,12 @@ export const translations: Record<string, Record<string, string>> = {
     cal_filter_loc: "Filtrar por Ubicación",
     cal_all: "Todos los tipos",
     cal_no_events: "No se encontraron eventos con los filtros seleccionados.",
+    cal_view_program: "Ver Programa",
+    cal_program_title: "Programa del Evento",
+    cal_no_sessions: "Aún no hay sesiones en la agenda de este evento.",
+    cal_fav_toggle: "Marcar / Desmarcar favorito",
+    cal_fav_filter: "Solo Favoritos",
+    cal_fav_none: "No tienes eventos marcados como favoritos.",
     chat_title: "Asistente Virtual Inteligente",
     chat_config: "Preferencias del Chat",
     chat_motion: "Desactivar animaciones y parpadeos",
@@ -246,12 +362,60 @@ export const translations: Record<string, Record<string, string>> = {
     inc_desc: "Descripción de la Incidencia",
     inc_btn: "Registrar Incidencia y Notificar",
     logout_btn: "Cerrar Sesión",
+    // Mis Boletos (asistente)
+    my_tickets_title: "Mis Boletos e Inscripciones",
+    my_tickets_legend: "Historial de Inscripciones",
+    my_tickets_empty: "Aún no tienes inscripciones registradas. Ve a la sección de Inscripción para registrarte en un evento.",
+    my_tickets_cancel: "Cancelar Inscripción",
+    my_tickets_cancel_confirm: "¿Está seguro que desea cancelar su inscripción a este evento? Esta acción se puede revertir contactando al organizador.",
+    my_tickets_cancelled: "Cancelada",
+    my_tickets_active: "Activa",
+    my_tickets_go_reg: "Ir a Inscribirme",
+    // Panel Admin
+    nav_admin: "Panel de Administración",
+    admin_title: "Panel de Administración",
+    admin_tab_users: "Usuarios Registrados",
+    admin_tab_surveys: "Encuestas Realizadas",
+    admin_tab_stats: "Estadísticas",
+    admin_users_empty: "Aún no hay inscripciones registradas.",
+    admin_surveys_empty: "Aún no hay encuestas respondidas.",
+    admin_stat_total_reg: "Total Inscripciones Activas",
+    admin_stat_avg_sat: "Satisfacción Promedio",
+    admin_stat_general: "Entradas Generales",
+    admin_stat_vip: "Entradas VIP",
+    admin_stat_incidents: "Incidencias Reportadas",
+    admin_stat_surveys_count: "Encuestas Respondidas",
+    admin_inv_sent: "Invitación Enviada",
+    admin_inv_pending: "Sin invitación",
+    // Atajos de teclado
+    shortcuts_title: "Atajos de Teclado",
+    shortcuts_btn: "Ver Atajos",
+    shortcut_acc: "Abrir accesibilidad",
+    shortcut_home: "Ir a inicio",
+    shortcut_reg: "Ir a Inscripción",
+    shortcut_cal: "Ir a Calendario",
+    shortcut_survey: "Ir a Encuesta",
+    shortcut_tickets: "Ir a Mis Boletos",
+    shortcut_incidents: "Ir a Incidencias",
+    shortcut_admin: "Ir a Panel Admin",
+    shortcut_esc: "Cerrar paneles",
+    // Email de invitación
+    inv_email_title: "Correo de Invitación Enviado",
+    inv_email_subject: "¡Tu inscripción está confirmada!",
+    inv_email_greeting: "¡Hola",
+    inv_email_body: "Tu inscripción al evento ha sido registrada exitosamente. Presenta el siguiente código QR a tu llegada.",
+    inv_email_accept: "Confirmar Asistencia",
+    inv_email_accept_done: "¡Asistencia confirmada! Nos vemos en el evento.",
+    inv_email_close: "Cerrar",
+    inv_email_from: "Sistema de Eventos U&A",
+    inv_email_sent_toast: "Correo de invitación enviado a",
   },
+
   en: {
     skip_to_content: "Skip to main content",
     dismiss: "Close",
     app_title: "Smart Event Management System",
-    group_signature: "User Centered Design - Group 7 (Vera A., Murillo D., Carrillo A.)",
+    group_signature: "Event Management Platform",
     profile_guest: "Guest",
     profile_logged: "Organizer: ",
     acc_title: "Accessibility Panel",
@@ -276,6 +440,7 @@ export const translations: Record<string, Record<string, string>> = {
     acc_underline_desc: "Makes all navigation links visible",
     nav_title_org: "Organizer Session",
     nav_title_pub: "General Public",
+    nav_title_att: "Attendee Area",
     nav_login: "Login",
     nav_profile: "Profile & Preferences",
     nav_create_event: "Create Event",
@@ -288,10 +453,13 @@ export const translations: Record<string, Record<string, string>> = {
     nav_calendar: "Search & Schedule",
     nav_chatbot: "Virtual Assistant",
     nav_survey: "Satisfaction Survey",
+    nav_my_tickets: "My Tickets",
     btn_save: "Save Changes",
     btn_next: "Next",
     btn_prev: "Previous",
     btn_edit: "Edit data",
+    btn_cancel: "Cancel",
+    btn_confirm: "Confirm",
     login_title: "Organizer Login",
     login_legend: "Access Credentials",
     login_instructions: "Enter your organizer details. For demo purposes, you can use any email and password.",
@@ -393,6 +561,12 @@ export const translations: Record<string, Record<string, string>> = {
     cal_filter_loc: "Filter by Location",
     cal_all: "All event types",
     cal_no_events: "No events found with the selected filters.",
+    cal_view_program: "View Schedule",
+    cal_program_title: "Event Program",
+    cal_no_sessions: "No sessions added to this event's agenda yet.",
+    cal_fav_toggle: "Toggle favorite",
+    cal_fav_filter: "Favorites Only",
+    cal_fav_none: "You have no events marked as favorites.",
     chat_title: "Smart Virtual Assistant",
     chat_config: "Chat Preferences",
     chat_motion: "Disable animations and flashing",
@@ -436,6 +610,53 @@ export const translations: Record<string, Record<string, string>> = {
     inc_desc: "Incident Description",
     inc_btn: "Register Incident & Notify Team",
     logout_btn: "Log Out",
+    // My Tickets (attendee)
+    my_tickets_title: "My Tickets & Registrations",
+    my_tickets_legend: "Registration History",
+    my_tickets_empty: "You have no registrations yet. Go to the Registration section to sign up for an event.",
+    my_tickets_cancel: "Cancel Registration",
+    my_tickets_cancel_confirm: "Are you sure you want to cancel your registration for this event? This action can be reversed by contacting the organizer.",
+    my_tickets_cancelled: "Cancelled",
+    my_tickets_active: "Active",
+    my_tickets_go_reg: "Go Register",
+    // Admin Panel
+    nav_admin: "Admin Panel",
+    admin_title: "Administration Panel",
+    admin_tab_users: "Registered Users",
+    admin_tab_surveys: "Surveys Submitted",
+    admin_tab_stats: "Statistics",
+    admin_users_empty: "No registrations yet.",
+    admin_surveys_empty: "No surveys submitted yet.",
+    admin_stat_total_reg: "Active Registrations",
+    admin_stat_avg_sat: "Average Satisfaction",
+    admin_stat_general: "General Tickets",
+    admin_stat_vip: "VIP Tickets",
+    admin_stat_incidents: "Incidents Reported",
+    admin_stat_surveys_count: "Surveys Answered",
+    admin_inv_sent: "Invitation Sent",
+    admin_inv_pending: "No invitation",
+    // Keyboard Shortcuts
+    shortcuts_title: "Keyboard Shortcuts",
+    shortcuts_btn: "View Shortcuts",
+    shortcut_acc: "Open accessibility panel",
+    shortcut_home: "Go to home",
+    shortcut_reg: "Go to Registration",
+    shortcut_cal: "Go to Calendar",
+    shortcut_survey: "Go to Survey",
+    shortcut_tickets: "Go to My Tickets",
+    shortcut_incidents: "Go to Incidents",
+    shortcut_admin: "Go to Admin Panel",
+    shortcut_esc: "Close panels",
+    // Invitation email
+    inv_email_title: "Invitation Email Sent",
+    inv_email_subject: "Your registration is confirmed!",
+    inv_email_greeting: "Hello",
+    inv_email_body: "Your registration for the event has been successfully recorded. Please present the following QR code upon arrival.",
+    inv_email_accept: "Confirm Attendance",
+    inv_email_accept_done: "Attendance confirmed! See you at the event.",
+    inv_email_close: "Close",
+    inv_email_from: "U&A Event System",
+    inv_email_sent_toast: "Invitation email sent to",
   }
 };
 
@@ -456,7 +677,7 @@ export const DEMO_USERS: DemoUser[] = [
     email: 'admin@evento.com',
     password: 'admin123',
     role: 'organizador',
-    name: 'Adriano Carrillo',
+    name: 'Admin Organizador',
     tel: '0999-111-222',
     timezone: 'GMT-5',
   },
@@ -464,7 +685,7 @@ export const DEMO_USERS: DemoUser[] = [
     email: 'asistente@evento.com',
     password: '1234',
     role: 'asistente',
-    name: 'Vera Abigail',
+    name: 'Usuario Asistente',
     tel: '0999-333-444',
     timezone: 'GMT-5',
   },
@@ -523,7 +744,7 @@ interface AppContextType {
   userProfile: { name: string; email: string; tel: string; timezone: string; lang: string; };
   setUserProfile: (v: { name: string; email: string; tel: string; timezone: string; lang: string; }) => void;
 
-  // Data
+  // Data (shared via localStorage)
   events: EventItem[];
   setEvents: (fn: (prev: EventItem[]) => EventItem[]) => void;
   agendaSessions: Record<string, SessionItem[]>;
@@ -538,6 +759,21 @@ interface AppContextType {
   setIsCheckInActive: (v: boolean) => void;
   incidents: IncidentItem[];
   setIncidents: (fn: (prev: IncidentItem[]) => IncidentItem[]) => void;
+  registrations: RegistrationItem[];
+  setRegistrations: (fn: (prev: RegistrationItem[]) => RegistrationItem[]) => void;
+  surveys: SurveyResponse[];
+  setSurveys: (fn: (prev: SurveyResponse[]) => SurveyResponse[]) => void;
+  invitations: InvitationLog[];
+  sendInvitationEmail: (name: string, email: string, eventName: string, qrId: string) => void;
+
+  // Shortcuts panel
+  shortcutsPanelOpen: boolean;
+  setShortcutsPanelOpen: (v: boolean) => void;
+
+  // Invitation email modal
+  invModalOpen: boolean;
+  invModalData: { name: string; email: string; eventName: string; qrId: string } | null;
+  setInvModalOpen: (v: boolean) => void;
 
   // Chat
   chatMessages: ChatMessage[];
@@ -609,54 +845,104 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LS_KEY);
   }, []);
 
-  const [events, setEvents] = useState<EventItem[]>([
-    {
-      id: "ev-1", name: "Congreso Internacional de Accesibilidad Web 2026", type: "conferencia",
-      startDate: "2026-10-12", endDate: "2026-10-14", capacity: 350, cost: 25000,
-      venueName: "Centro Cultural Metropolitano", city: "Quito", country: "Ecuador",
-      address: "García Moreno y Espejo", hasRamps: true, hasLoop: true, hasToilets: true, hasParking: true,
-      ticketType: "mixta", priceGen: 15, priceVip: 45, discStudent: true, discSenior: true, discDisabled: true
-    },
-    {
-      id: "ev-2", name: "Festival de Música Inclusiva 'Ritmos para Todos'", type: "concierto",
-      startDate: "2026-11-20", endDate: "2026-11-20", capacity: 1200, cost: 45000,
-      venueName: "Parque Bicentenario (Explanada)", city: "Quito", country: "Ecuador",
-      address: "Av. Amazonas", hasRamps: true, hasLoop: false, hasToilets: true, hasParking: true,
-      ticketType: "gratuita", priceGen: 0, priceVip: 0, discStudent: false, discSenior: false, discDisabled: false
-    },
-    {
-      id: "ev-3", name: "Taller Práctico de Diseño Centrado en el Usuario", type: "taller",
-      startDate: "2026-09-05", endDate: "2026-09-06", capacity: 50, cost: 3500,
-      venueName: "Aulas de Posgrado - Universidad U&A", city: "Guayaquil", country: "Ecuador",
-      address: "Av. Carlos Julio Arosemena", hasRamps: true, hasLoop: false, hasToilets: false, hasParking: false,
-      ticketType: "pago", priceGen: 50, priceVip: 90, discStudent: true, discSenior: true, discDisabled: true
-    }
-  ]);
+  // ======================= DATOS COMPARTIDOS (localStorage) =======================
 
-  const [agendaSessions, setAgendaSessions] = useState<Record<string, SessionItem[]>>({
-    "ev-1": [
-      { name: "Apertura y Registro de Asistentes", time: "09:00", speaker: "Adriano Carrillo", room: "Sala Magna (Nivel 1)", materials: "", interpreter: true },
-      { name: "Principios de WCAG 2.2 en profundidad", time: "10:30", speaker: "Vera Abigail", room: "Sala Magna", materials: "", interpreter: true },
-      { name: "Mesa Redonda: Testeo de Accesibilidad Web en Ecuador", time: "12:00", speaker: "Murillo Danna", room: "Sala B", materials: "", interpreter: false }
-    ],
-    "ev-2": [
-      { name: "Apertura de Puertas e Inducción de Seguridad", time: "16:00", speaker: "Logística G7", room: "Escenario Principal", materials: "", interpreter: false },
-      { name: "Presentación del Coro Inclusivo Voces de Libertad", time: "17:30", speaker: "Director Coral", room: "Escenario Principal", materials: "", interpreter: true }
-    ],
-    "ev-3": [
-      { name: "Introducción teórica al DCU", time: "09:30", speaker: "Adriano Carrillo", room: "Laboratorio L-402", materials: "", interpreter: false }
-    ]
+  const [events, setEvents] = useState<EventItem[]>(() =>
+    loadLS(LS_DATA.EVENTS, DEFAULT_EVENTS)
+  );
+
+  const [agendaSessions, setAgendaSessions] = useState<Record<string, SessionItem[]>>(() =>
+    loadLS(LS_DATA.AGENDA, DEFAULT_AGENDA)
+  );
+
+  const [checkInLog, setCheckInLog] = useState<CheckInLogItem[]>(() =>
+    loadLS(LS_DATA.CHECKIN_LOG, DEFAULT_CHECKIN)
+  );
+
+  const [expectedAttendance, setExpectedAttendance] = useState<number>(() => {
+    const att = loadLS<{ expected: number; actual: number } | null>(LS_DATA.ATTENDANCE, null);
+    return att?.expected ?? 120;
   });
 
-  const [checkInLog, setCheckInLog] = useState<CheckInLogItem[]>([
-    { id: 1, time: "10:05", name: "Danna Murillo", type: "PCD - General" },
-    { id: 2, time: "10:03", name: "Carlos Andrade", type: "General" },
-    { id: 3, time: "10:00", name: "Adriano Carrillo", type: "VIP" }
-  ]);
-  const [expectedAttendance, setExpectedAttendance] = useState(120);
-  const [actualAttendance, setActualAttendance] = useState(42);
+  const [actualAttendance, setActualAttendance] = useState<number>(() => {
+    const att = loadLS<{ expected: number; actual: number } | null>(LS_DATA.ATTENDANCE, null);
+    return att?.actual ?? 42;
+  });
+
   const [isCheckInActive, setIsCheckInActive] = useState(true);
-  const [incidents, setIncidents] = useState<IncidentItem[]>([]);
+
+  const [incidents, setIncidents] = useState<IncidentItem[]>(() =>
+    loadLS(LS_DATA.INCIDENTS, [])
+  );
+
+  const [registrations, setRegistrations] = useState<RegistrationItem[]>(() =>
+    loadLS(LS_DATA.REGISTRATIONS, [])
+  );
+
+  const [surveys, setSurveys] = useState<SurveyResponse[]>(() =>
+    loadLS(LS_DATA.SURVEYS, [])
+  );
+
+  const [invitations, setInvitations] = useState<InvitationLog[]>(() =>
+    loadLS(LS_DATA.INVITATIONS, [])
+  );
+
+  const [shortcutsPanelOpen, setShortcutsPanelOpen] = useState(false);
+  const [invModalOpen, setInvModalOpen] = useState(false);
+  const [invModalData, setInvModalData] = useState<{ name: string; email: string; eventName: string; qrId: string } | null>(null);
+
+  // ======================= PERSISTENCIA EN localStorage =======================
+
+  useEffect(() => { localStorage.setItem(LS_DATA.EVENTS, JSON.stringify(events)); }, [events]);
+  useEffect(() => { localStorage.setItem(LS_DATA.AGENDA, JSON.stringify(agendaSessions)); }, [agendaSessions]);
+  useEffect(() => { localStorage.setItem(LS_DATA.CHECKIN_LOG, JSON.stringify(checkInLog)); }, [checkInLog]);
+  useEffect(() => { localStorage.setItem(LS_DATA.INCIDENTS, JSON.stringify(incidents)); }, [incidents]);
+  useEffect(() => { localStorage.setItem(LS_DATA.REGISTRATIONS, JSON.stringify(registrations)); }, [registrations]);
+  useEffect(() => { localStorage.setItem(LS_DATA.SURVEYS, JSON.stringify(surveys)); }, [surveys]);
+  useEffect(() => { localStorage.setItem(LS_DATA.INVITATIONS, JSON.stringify(invitations)); }, [invitations]);
+  useEffect(() => {
+    localStorage.setItem(LS_DATA.ATTENDANCE, JSON.stringify({ expected: expectedAttendance, actual: actualAttendance }));
+  }, [expectedAttendance, actualAttendance]);
+
+  // ======================= SINCRONIZACIÓN ENTRE PESTAÑAS =======================
+  // El evento nativo 'storage' se dispara cuando OTRA pestaña modifica localStorage
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      try {
+        if (e.key === LS_DATA.EVENTS && e.newValue)
+          setEvents(() => JSON.parse(e.newValue!));
+        if (e.key === LS_DATA.AGENDA && e.newValue)
+          setAgendaSessions(() => JSON.parse(e.newValue!));
+        if (e.key === LS_DATA.CHECKIN_LOG && e.newValue)
+          setCheckInLog(() => JSON.parse(e.newValue!));
+        if (e.key === LS_DATA.INCIDENTS && e.newValue)
+          setIncidents(() => JSON.parse(e.newValue!));
+        if (e.key === LS_DATA.REGISTRATIONS && e.newValue)
+          setRegistrations(() => JSON.parse(e.newValue!));
+        if (e.key === LS_DATA.ATTENDANCE && e.newValue) {
+          const att = JSON.parse(e.newValue!) as { expected: number; actual: number };
+          setExpectedAttendance(() => att.expected);
+          setActualAttendance(() => att.actual);
+        }
+        // Sync emergency/incidents alerts cross-tab
+        if (e.key === LS_DATA.INCIDENTS && e.newValue) {
+          const incs = JSON.parse(e.newValue!) as IncidentItem[];
+          const hasHighAlert = incs.some(i => i.gravity === 'alto');
+          if (hasHighAlert) {
+            const last = incs.filter(i => i.gravity === 'alto').at(-1);
+            if (last) {
+              setEmergencyText(`⚠ ALERTA: ${last.type.toUpperCase()} en ${last.location}. ${last.description}`);
+              setEmergencyOpen(true);
+            }
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { text: "¡Hola! Soy tu asistente de accesibilidad. ¿Cómo te puedo ayudar hoy con el sistema de eventos?", sender: 'bot' }
@@ -676,8 +962,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToastOpen(false), 4000);
   }, []);
 
+  const sendInvitationEmail = useCallback((name: string, email: string, eventName: string, qrId: string) => {
+    const log: InvitationLog = {
+      id: Date.now(),
+      toName: name,
+      toEmail: email,
+      eventName,
+      qrId,
+      sentAt: new Date().toISOString(),
+    };
+    setInvitations(prev => [...prev, log]);
+    // Open the invitation modal
+    setInvModalData({ name, email, eventName, qrId });
+    setInvModalOpen(true);
+  }, []);
+
   const simulateCheckIn = useCallback(() => {
-    const mockNames = ["Vera Abigail", "Murillo Danna", "Carrillo Adriano", "Juan Perez", "Maria Lopez", "Elena Gomez", "Luis Torres"];
+    const mockNames = ["Sofia Reyes", "Carlos Andrade", "Miguel Pérez", "Juan Perez", "Maria Lopez", "Elena Gomez", "Luis Torres"];
     const randName = mockNames[Math.floor(Math.random() * mockNames.length)];
     const randType = Math.random() > 0.5 ? "GENERAL" : "VIP";
     setActualAttendance(prev => {
@@ -725,12 +1026,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = currentLang;
   }, [currentLang]);
 
-  // Alt+A keyboard shortcut
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: globalThis.KeyboardEvent) => {
-      if (e.altKey && e.key.toLowerCase() === 'a') {
-        e.preventDefault();
-        setAccPanelOpen(prev => !prev);
+      if (e.altKey) {
+        const k = e.key.toLowerCase();
+        if (k === 'a') { e.preventDefault(); setAccPanelOpen(prev => !prev); }
+        if (k === 'k') { e.preventDefault(); setShortcutsPanelOpen(prev => !prev); }
+        if (k === 'h') { e.preventDefault(); window.location.hash = '#/login'; window.dispatchEvent(new CustomEvent('ua-navigate', { detail: '/login' })); }
+        if (k === 'r') { e.preventDefault(); window.dispatchEvent(new CustomEvent('ua-navigate', { detail: '/register' })); }
+        if (k === 'c') { e.preventDefault(); window.dispatchEvent(new CustomEvent('ua-navigate', { detail: '/calendar' })); }
+        if (k === 's') { e.preventDefault(); window.dispatchEvent(new CustomEvent('ua-navigate', { detail: '/survey' })); }
+        if (k === 'm') { e.preventDefault(); window.dispatchEvent(new CustomEvent('ua-navigate', { detail: '/my-tickets' })); }
+        if (k === 'i') { e.preventDefault(); window.dispatchEvent(new CustomEvent('ua-navigate', { detail: '/dashboard/incidents' })); }
+        if (k === 'p') { e.preventDefault(); window.dispatchEvent(new CustomEvent('ua-navigate', { detail: '/dashboard/admin' })); }
+      }
+      if (e.key === 'Escape') {
+        setAccPanelOpen(false);
+        setShortcutsPanelOpen(false);
+        setInvModalOpen(false);
       }
     };
     window.addEventListener('keydown', handler);
@@ -806,6 +1120,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       actualAttendance, setActualAttendance,
       isCheckInActive, setIsCheckInActive,
       incidents, setIncidents,
+      registrations, setRegistrations,
+      surveys, setSurveys,
+      invitations, sendInvitationEmail,
+      shortcutsPanelOpen, setShortcutsPanelOpen,
+      invModalOpen, invModalData, setInvModalOpen,
       chatMessages, setChatMessages,
       lastBotMessage, setLastBotMessage,
       chatMessagesEndRef,
